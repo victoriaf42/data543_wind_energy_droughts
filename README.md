@@ -279,6 +279,50 @@ The train-test performance gap (CV AUC ~0.80 vs test AUC ~0.60) reflects structu
  
 **Outputs:** `results/xgboost/{xgb_1,xgb_2}/test_evaluation.png`, `feature_importances.png`, `feature_importances.csv`, and `results/xgboost/xgb_comparison.csv`
 
+### 7 — XGBoost Zone-Specific Models
+ 
+**Script:** `files/07_xgboost_zone_models.py`
+ 
+Extends the global XGBoost analysis by evaluating performance separately for each of the four ERCOT load zones. Two complementary analyses are run in a single script.
+ 
+```bash
+python files/07_xgboost_zone_models.py
+```
+ 
+#### Analysis A — Global model evaluated per zone
+ 
+The fitted global XGB-2 model is applied to each zone's test data separately. This reveals where the compound stress signal fires most reliably without any retraining.
+ 
+#### Analysis B — Separate XGBoost model trained per zone
+ 
+One XGBoost model is trained exclusively on each zone's 2022–2024 data using the identical 11-feature XGB-2 specification and hyperparameters. This is the more rigorous evaluation: it allows zone-specific feature importance rankings to emerge from zone-specific price formation dynamics rather than being averaged across the full grid.
+ 
+Per-zone models outperform the global specification in three of the four load zones (LZ_HOUSTON, LZ_NORTH, LZ_SOUTH). The global model marginally outperforms in LZ_WEST — the zone with the largest installed capacity and most diffuse wind-price dynamics — where year-over-year variability in conditions makes the statistical relationships learned in training harder to generalise.
+ 
+The 2020-vs-2021 AUC improvement is geographically widespread across all zones, confirming that the train-test gap is driven by COVID-era distributional shift rather than zone-specific model failure.
+ 
+#### Feature importance by zone
+ 
+Feature importance rankings differ meaningfully across zones, consistent with the distinct price formation mechanisms documented in the paper:
+ 
+| Zone | Top feature | Importance | Interpretation |
+|------|-------------|------------|----------------|
+| LZ_SOUTH | `gas_x_low_wind_x_demand` | 0.500 | Transmission bottlenecks mean local wind shortfalls translate directly into local price stress |
+| LZ_NORTH | `gas_x_low_wind_x_demand` | 0.386 | Compound instantaneous shortfalls dominate |
+| LZ_HOUSTON | `gas_x_demand` | 0.310 | No local wind — price driven by cost of imported generation under demand stress |
+| LZ_WEST | `drought_run_hours` | 0.203 | Duration rather than instantaneous severity predicts price stress, reflecting limited local gas backup and intertie capacity constraints |
+ 
+#### Results (Table 7 from paper)
+ 
+| Zone | CV AUC | Test AUC | Test AUC 2020 | Test AUC 2021 | Test Precision | Test Recall |
+|------|--------|----------|---------------|---------------|----------------|-------------|
+| LZ_HOUSTON | 0.884 ± 0.008 | 0.626 | 0.589 | 0.682 | 0.204 | 0.284 |
+| LZ_NORTH | 0.898 ± 0.001 | 0.644 | 0.593 | 0.724 | 0.262 | 0.232 |
+| LZ_SOUTH | 0.882 ± 0.002 | 0.675 | 0.626 | 0.749 | 0.281 | 0.316 |
+| LZ_WEST | 0.799 ± 0.001 | 0.565 | 0.522 | 0.629 | 0.127 | 0.319 |
+ 
+**Outputs:** `results/xgboost_zones/global_model_auc_by_zone.png`, `global_vs_zone_model_auc.png`, `zone_feature_importance_heatmap.png`, `zone_results.csv`
+
 ## Citation
 
 Hersbach, H. et al. (2023). ERA5 hourly data on single levels from 1940 to present. Copernicus Climate Change Service (C3S) Climate Data Store. <https://doi.org/10.24381/cds.adbb2d47>
