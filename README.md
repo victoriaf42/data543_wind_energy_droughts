@@ -227,7 +227,7 @@ Henry Hub spot prices and NYMEX futures (C1–C4) are downloaded directly from t
 - Spot prices: <https://www.eia.gov/dnav/ng/hist/rngwhhdm.htm>
 - Futures (C1–C4): <https://www.eia.gov/dnav/ng/ng_pri_fut_s1_d.htm>
 
-Daily values are forward-filled across weekends and holidays (up to five consecutive non-trading days) and broadcast to the hourly level. Futures prices are converted from $/MMBtu to $/MWh using a heat rate of 8.978 MMBtu/MWh (38% combined-cycle gas turbine efficiency).
+Daily values are forward-filled across weekends and holidays (up to five consecutive non-trading days) and broadcast to the hourly level. Futures prices are converted from \$/MMBtu to \$/MWh using a heat rate of 8.978 MMBtu/MWh (38% combined-cycle gas turbine efficiency).
 
 ---
 
