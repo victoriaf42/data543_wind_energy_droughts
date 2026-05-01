@@ -307,16 +307,18 @@ Per-zone models outperform the global specification in three of the four load zo
  
 The 2020-vs-2021 AUC improvement is geographically widespread across all zones, confirming that the train-test gap is driven by COVID-era distributional shift rather than zone-specific model failure.
  
-#### Feature importance by zone
+#### Feature importance by zone (Figure 7 from paper)
  
-Feature importance rankings differ meaningfully across zones, consistent with the distinct price formation mechanisms documented in the paper:
+Feature importance rankings differ meaningfully across zones, consistent with the distinct price formation mechanisms documented in the paper.  The script prints both the top and 2nd-ranked feature per zone, and saves a heatmap (`zone_feature_importance_heatmap.png`) showing the full importance matrix.
  
-| Zone | Top feature | Importance | Interpretation |
-|------|-------------|------------|----------------|
-| LZ_SOUTH | `gas_x_low_wind_x_demand` | 0.500 | Transmission bottlenecks mean local wind shortfalls translate directly into local price stress |
-| LZ_NORTH | `gas_x_low_wind_x_demand` | 0.386 | Compound instantaneous shortfalls dominate |
-| LZ_HOUSTON | `gas_x_demand` | 0.310 | No local wind — price driven by cost of imported generation under demand stress |
-| LZ_WEST | `drought_run_hours` | 0.203 | Duration rather than instantaneous severity predicts price stress, reflecting limited local gas backup and intertie capacity constraints |
+| Zone | Top feature | Importance | 2nd feature | Interpretation |
+|------|-------------|------------|-------------|----------------|
+| LZ_SOUTH | `gas_x_low_wind_x_demand` | 0.500 | `gas_x_demand` | Transmission bottlenecks mean local wind shortfalls translate directly into local price stress — the most concentrated compound signal of any zone |
+| LZ_NORTH | `gas_x_low_wind_x_demand` | 0.386 | `gas_price_mmbtu` | Compound instantaneous shortfalls dominate; gas price carries independent influence given a 45% natural gas generation mix |
+| LZ_HOUSTON | `gas_x_demand` | 0.310 | `gas_x_low_wind_x_demand` | Effectively no local wind (< 0.5% of capacity); price driven by cost of servicing load from imported generation under demand stress |
+| LZ_WEST | `drought_run_hours` | 0.203 | `gas_x_low_wind_x_demand` | Duration rather than instantaneous CF predicts price stress — limited local gas backup means prices spike only after reserves are progressively exhausted over multi-day droughts |
+ 
+LZ_WEST is the hardest zone to predict (test AUC 0.565) despite holding 69% of installed wind capacity.  The compound three-way interaction that dominates other zones carries less discriminatory power in LZ_WEST because gas price stress and temperature-driven demand are comparatively weak local price formation mechanisms — wind is dominant but highly volatile, and the model struggles where two of its three signal components are largely absent.
  
 #### Results (Table 7 from paper)
  
@@ -327,7 +329,7 @@ Feature importance rankings differ meaningfully across zones, consistent with th
 | LZ_SOUTH | 0.882 ± 0.002 | 0.675 | 0.626 | 0.749 | 0.281 | 0.316 |
 | LZ_WEST | 0.799 ± 0.001 | 0.565 | 0.522 | 0.629 | 0.127 | 0.319 |
  
-**Outputs:** `results/xgboost_zones/global_model_auc_by_zone.png`, `global_vs_zone_model_auc.png`, `zone_feature_importance_heatmap.png`, `zone_results.csv`
+**Outputs:** `results/xgboost_zones/global_model_auc_by_zone.png` (Figure 6 from paper), `global_vs_zone_model_auc.png`, `zone_feature_importance_heatmap.png` (Figure 7), `zone_results.csv`
 
 ### 8 — Grid Cell Performance and Threshold Optimisation
  
