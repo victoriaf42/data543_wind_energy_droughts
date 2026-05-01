@@ -13,9 +13,10 @@ files/
 ├── 04_classify_droughts.py
 ├── 05_logistic_regression_models.py
 ├── 06_xgboost_models.py
-└── 07_xgboost_zone_models.py
+├── 07_xgboost_zone_models.py
 ├── 08_grid_cell_performance_and_threshold.py
-└── 09_natural_gas_futures.py
+├── 09_natural_gas_futures.py
+└── 10_hazard_analysis.py
 ```
 
 ---
@@ -420,6 +421,45 @@ Hedge P&L = (NG spot − NG futures) × 269.34 MMBtu
 Source: [Woodway Energy — Natural Gas Efficiency in Power Generation](https://www.woodwayenergy.com/natural-gas-efficiency-in-power-generation/)
  
 **Outputs:** `data/ng_futures/henry_hub_futures_C1_C4_2019_2024.csv` (raw), `data/ng_futures/henry_hub_futures_filled.csv` (forward-filled, simulation-ready)
+
+### 10 — Hazard Analysis
+ 
+**Script:** `files/10_hazard_analysis.py`
+ 
+Produces the two hazard figures that open the Results section of the paper, using the ERA5 reanalysis-based drought event catalogue covering **1980–2025**.
+ 
+```bash
+python files/10_hazard_analysis.py
+```
+ 
+The script reads two pre-built drought event catalogues from `data/drought_events/`. Both apply the same event definition — zone CF < threshold while installed capacity under production ≤ 50% of the zone total — at different CF thresholds appropriate to each figure's purpose.
+ 
+#### Input files
+ 
+| File | CF threshold | Used for |
+|------|-------------|----------|
+| `ALL_ZONES_events_1980_2025_CF0.30_cap50pct.csv` | 0.30 | Figure 4 — seasonality and severity |
+| `ALL_ZONES_events_1980_2025_CF0.15_cap50pct.csv` | 0.15 | Figure 5 — exceedance probability surfaces |
+ 
+Expected columns: `start_time`, `load_zone`, `duration` (hours), `avg_zone_cf` (0–1).
+ 
+#### Figure 4 — Seasonality of Low-Wind Drought Events (LZ_WEST)
+ 
+Two-panel figure using the CF0.30 catalogue filtered to LZ_WEST.
+ 
+- **Top panel** — count of drought events by meteorological season. Summer produces the highest raw event count (n=3,148), followed by Spring (2,842), Winter (2,684), and Fall (2,614).
+- **Bottom panel** — mean and 95th-percentile composite severity score by season. While mean severity scores are broadly similar across seasons, the 95th-percentile scores diverge sharply: Summer droughts reach a severity score of approximately 3.20 at the 95th percentile, the highest of any season, with Fall close behind at ~2.75. This divergence between mean and tail severity is financially significant — it is the worst events, not the average ones, that drive loss exposure under a physical PPA.
+Severity score = `duration × max(0.15 − avg_zone_cf, 0)`, weighting events by both duration and depth below the severe CF threshold.
+ 
+#### Figure 5 — Seasonal Low-Wind Event Probabilities (Load Zone West)
+ 
+2×2 grid of heat maps using the CF0.15 catalogue filtered to LZ_WEST. Each panel shows P(≥1 drought event per season-year) across a grid of duration thresholds (x-axis, hours, ≥) and average zone CF thresholds (y-axis, ≤).
+ 
+Probabilities are computed via the Poisson approximation: P = 1 − exp(−λ), where λ = event count / n_season_years.
+ 
+At lenient thresholds all four seasons show near-certain exceedance, confirming that short, moderate wind drought events are a routine structural feature of the West Texas wind resource. The key differentiation emerges as duration thresholds increase: Summer and Fall sustain meaningful exceedance probabilities well past 150 hours, with Summer recording the longest observed event beyond 500 hours. Winter and Spring decay much more rapidly — Spring shows no observed events at the highest duration-severity combinations. The joint probability of long duration and deep CF suppression (avg zone CF < 0.10) remains non-trivial in Summer and Fall up to ~50–75 hours, representing the most financially dangerous drought configuration for PPA producers.
+ 
+**Outputs:** `results/hazard/figure4_seasonality_lz_west.png`, `results/hazard/figure5_exceedance_probabilities_lz_west.png`
 
 ## Citation
 
