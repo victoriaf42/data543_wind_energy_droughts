@@ -411,7 +411,7 @@ Futures markets do not trade on weekends or holidays, leaving gaps in the daily 
  
 #### Heat rate conversion
  
-Futures prices in $/MMBtu are converted to electricity-equivalent $/MWh for direct comparison with electricity prices using the heat rate derived from a 38% CCGT efficiency assumption — the marginal generation technology most likely to set real-time prices during high-demand or low-wind periods in ERCOT:
+Futures prices in '$/MMBtu' are converted to electricity-equivalent '$/MWh' for direct comparison with electricity prices using the heat rate derived from a 38% CCGT efficiency assumption — the marginal generation technology most likely to set real-time prices during high-demand or low-wind periods in ERCOT:
  
 ```
 Heat rate = 1 / (0.293071 MWh/MMBtu × 0.381) = 8.978 MMBtu/MWh
