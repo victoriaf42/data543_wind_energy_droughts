@@ -231,6 +231,54 @@ Daily values are forward-filled across weekends and holidays (up to five consecu
 
 ---
 
+### 6 — XGBoost Global Models
+ 
+**Script:** `files/06_xgboost_models.py`
+ 
+Two successive XGBoost specifications are evaluated as the primary prediction models. Both use the same hyperparameter configuration (Table 4 from paper) and 5-fold stratified cross-validation on the training data.
+ 
+```bash
+# Run both models end-to-end (default)
+python files/06_xgboost_models.py
+ 
+# Run a single specification
+python files/06_xgboost_models.py --model XGB-1
+python files/06_xgboost_models.py --model XGB-2
+```
+ 
+#### Why XGBoost over logistic regression
+ 
+Logistic regression plateaued at CV AUC ~0.636 across all three specifications. The bottleneck was architectural: a single linear decision boundary cannot express the nonlinear, regime-dependent compound interactions between wind output, gas prices, and temperature that drive HIGH price exposure in ERCOT. XGBoost builds an ensemble of decision trees sequentially, each correcting residual errors of the previous ensemble, which allows it to discover these interactions organically without requiring them to be manually specified in advance.
+ 
+#### Hyperparameters (shared across both models)
+ 
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `n_estimators` | 200 | Number of trees in the ensemble |
+| `max_depth` | 4 | Maximum tree depth — primary control for overfitting |
+| `learning_rate` | 0.1 | Shrinkage factor applied after each tree |
+| `subsample` | 0.8 | Fraction of training rows sampled per tree |
+| `colsample_bytree` | 0.8 | Fraction of features randomly selected per tree |
+| `min_child_weight` | 5 | Minimum instance weight to form a leaf — conservative regulariser |
+| `scale_pos_weight` | auto | Computed as n_LOW / n_HIGH from training data to correct for class imbalance |
+ 
+#### Model Specifications
+ 
+**XGB-1** uses eight features: raw `wind_cf`, `drought_run_hours`, the binary `extreme_hourly` demand flag, daily Henry Hub spot price (`gas_price_mmbtu`), and four engineered interaction terms using the binary flag as the demand multiplier. The addition of natural gas spot prices over the logistic regression baseline produced an immediate and substantial improvement in CV AUC (0.636 → 0.791), confirming that gas price was carrying the dominant predictive signal the wind-and-temperature-only models could not access. The binary `extreme_hourly` flag remains a binding constraint — it treats a mildly hot afternoon identically to an extreme heat event.
+ 
+**XGB-2** is the final global model specification. The binary `extreme_hourly` flag is replaced by a continuous `temp_stress` signal (`|tmm_F − 65| / 70`, clipped to [0, 1]), which preserves the nonlinear relationship between temperature deviation and demand intensity. Three additional base features are added: `tmm_F`, `HDD_hourly`, and `CDD_hourly`. All four interaction terms are recomputed using `temp_stress_norm` instead of the binary flag. The dominant feature becomes the three-way `gas_x_low_wind_x_demand` interaction (importance = 0.355), confirming that HIGH price exposure in ERCOT is driven by the simultaneous confluence of low wind output, elevated gas prices, and temperature-driven demand — not any single factor in isolation.
+ 
+#### Results (Table 6 from paper)
+ 
+| Model | CV AUC | CV Recall | CV Precision | Test AUC | Top feature |
+|-------|--------|-----------|--------------|----------|-------------|
+| XGB-1 | 0.7906 | 0.6728 | 0.2526 | 0.5984 | gas_price_mmbtu (0.271) |
+| XGB-2 | 0.8038 | 0.6790 | 0.2684 | 0.6003 | gas_x_low_wind_x_demand (0.355) |
+ 
+The train-test performance gap (CV AUC ~0.80 vs test AUC ~0.60) reflects structural differences between periods rather than overfitting. The 2022–2024 training window was shaped by post-Ukraine war gas price formation and a mature 40,355 MW wind fleet, while the 2020–2021 test period was characterised by COVID-era demand suppression, historically low gas prices ($1.33–$6.37/MMBtu excluding Winter Storm Uri), and a smaller ~29,200 MW installed base. Test AUC improves from 0.546 in 2020 to 0.669 in 2021 as conditions began normalising.
+ 
+**Outputs:** `results/xgboost/{xgb_1,xgb_2}/test_evaluation.png`, `feature_importances.png`, `feature_importances.csv`, and `results/xgboost/xgb_comparison.csv`
+
 ## Citation
 
 Hersbach, H. et al. (2023). ERA5 hourly data on single levels from 1940 to present. Copernicus Climate Change Service (C3S) Climate Data Store. <https://doi.org/10.24381/cds.adbb2d47>
