@@ -4,13 +4,16 @@ ERCOT Wind PPA Risk — XGBoost framework predicting high electricity price expo
 ---
 
 ## Repository Structure
-
+ 
 ```
 files/
 ├── 01_download_era5_wind.py
 ├── 02_download_era5_temperature.py
 ├── 03_process_electricity_prices.py
-└── 04_classify_droughts.py
+├── 04_classify_droughts.py
+├── 05_logistic_regression_models.py
+├── 06_xgboost_models.py
+└── 07_xgboost_zone_models.py
 ```
 
 ---
