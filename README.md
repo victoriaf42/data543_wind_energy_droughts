@@ -1,5 +1,5 @@
 # data543_wind_energy_droughts
-ERCOT Wind PPA Risk — XGBoost framework predicting high electricity price exposure during wind energy droughts. Models compound risk from low wind output, elevated gas prices, and temperature stress to generate hedging signals for fixed-volume PPA producers. Includes ERA5 reanalysis, futures hedge simulation, and grid-cell P&amp;L analysis.
+ERCOT Wind PPA Risk — XGBoost framework predicting high electricity price exposure during wind energy droughts. Models compound risk from low wind output, elevated gas prices, and temperature stress to generate hedging signals for fixed-volume PPA producers. Includes ERA5 reanalysis, futures hedge simulation, and grid-cell P&L analysis.
 
 ---
 
@@ -9,7 +9,8 @@ ERCOT Wind PPA Risk — XGBoost framework predicting high electricity price expo
 files/
 ├── 01_download_era5_wind.py
 ├── 02_download_era5_temperature.py
-└── 03_process_electricity_prices.py
+├── 03_process_electricity_prices.py
+└── 04_classify_droughts.py
 ```
 
 ---
@@ -133,6 +134,54 @@ The script aggregates 15-minute intervals to hourly averages, filters to the fou
 | `data/processed/ercot_prices_2022_2024.csv` | 2022–2024 | Training set |
 
 **Output columns:** `hour, load_zone, price, Price Exposure`
+
+---
+
+### 4 — Classify Wind Energy Droughts
+
+**Script:** `files/04_classify_droughts.py`
+
+Classifies every hourly observation in the merged wind + temperature + price files as one of four drought severity tiers, then aggregates to a daily classification using majority-rule logic. Both the training period (2022–2024) and test period (2020–2021) are processed.
+
+```bash
+python files/04_classify_droughts.py
+```
+
+#### Hourly Classification
+
+A drought hour is any hour where the wind capacity factor falls below 0.30. Each drought hour is further classified by combining instantaneous CF depth with the length of the consecutive drought run it belongs to. Run lengths are computed using vectorised segment IDs that reset whenever the drought flag changes or a timestamp gap exceeds one hour.
+
+| Category | Condition |
+|----------|-----------|
+| `NO_DROUGHT` | CF ≥ 0.25 (not in a drought run) |
+| `MILD` | CF < 0.25 and run < 10 hours |
+| `MODERATE` | Run 10–24 hours, OR run ≥ 24 hours with CF ≥ 0.15 |
+| `SEVERE` | Run ≥ 24 hours AND CF < 0.15 |
+
+The `drought_run_hours` column — the continuous run length at each hour — is retained as a model feature alongside raw `wind_cf`. A 48-hour drought places considerably more stress on the grid than a 2-hour dip at the same CF level, as reserves deplete over time and cheaper backup options are progressively exhausted.
+
+#### Daily Classification
+
+Each calendar day is assigned the drought category that best represents the majority of its 24 hourly observations, applied in priority order:
+
+1. ≥ 20 hours `NO_DROUGHT` → `NO_DROUGHT`
+2. ≥ 12 hours `SEVERE` → `SEVERE`
+3. ≥ 12 hours `MODERATE` → `MODERATE`
+4. ≥ 12 hours `MILD` → `MILD`
+5. Tie-break: category with the most hours that day
+
+**Outputs:**
+
+| Directory | Period | Content |
+|-----------|--------|---------|
+| `wind_temp_20_21_hourly_FIXED/` | 2020–2021 | Hourly files updated in place with classification columns |
+| `wind_temp_22_24_hourly_FIXED/` | 2022–2024 | Hourly files updated in place with classification columns |
+| `wind_temp_data_daily_20_21_RECOMPUTED/` | 2020–2021 | One daily summary CSV per grid cell |
+| `wind_temp_data_daily_22_24_RECOMPUTED/` | 2022–2024 | One daily summary CSV per grid cell |
+
+**New hourly columns:** `drought, drought_run_hours, hourly_drought_category`
+
+**Daily output columns:** `date, Load_Zone, grid_latitude, grid_longitude, daily_drought_category, daily_drought_hours, daily_non_drought_hours, daily_mild_hours, daily_moderate_hours, daily_severe_hours, daily_mean_wind_cf, daily_min_wind_cf`
 
 ---
 
