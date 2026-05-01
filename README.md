@@ -326,6 +326,45 @@ Feature importance rankings differ meaningfully across zones, consistent with th
  
 **Outputs:** `results/xgboost_zones/global_model_auc_by_zone.png`, `global_vs_zone_model_auc.png`, `zone_feature_importance_heatmap.png`, `zone_results.csv`
 
+### 8 — Grid Cell Performance and Threshold Optimisation
+ 
+**Script:** `files/08_grid_cell_performance_and_threshold.py`
+ 
+Two analyses that bridge the global XGBoost model and the financial simulation.
+ 
+```bash
+python files/08_grid_cell_performance_and_threshold.py
+```
+ 
+#### Part 1 — Per-grid-cell model performance
+ 
+The fitted global XGB-2 model is evaluated on every individual grid cell in the 2020–2021 test set.  AUC-ROC, precision, and recall are computed per cell, with AUC broken down by year (2020 vs 2021) to isolate the distributional shift effect documented at the zone level.
+ 
+This analysis motivates the selection of grid cell 6_23 (LZ_WEST, 150 MW installed capacity) for the financial simulation.  Despite LZ_WEST having the weakest average cell AUC (mean 0.565), cell 6_23 achieves above-zone-average performance — overall AUC 0.616, 2021 AUC 0.70 — while sitting in the zone with the largest aggregate physical exposure (27,768 MW, 83 grid cells).  The ten best-predicted cells are concentrated in LZ_SOUTH (overall AUC 0.641–0.651, 2021 AUC consistently above 0.70); the ten hardest-to-predict cells are predominantly in LZ_WEST (overall AUC 0.538–0.573).
+ 
+The 2020→2021 AUC improvement is geographically widespread across nearly all grid cells, with the largest gains in LZ_WEST and LZ_NORTH — consistent with the zone-level finding that COVID-era conditions in 2020 suppressed the compound gas-wind-temperature stress signal on which the model was trained.
+ 
+**Outputs:** `results/grid_cell/grid_cell_auc_map.png` (spatial AUC + shift map, Figure 8 from paper), `grid_cell_auc_by_zone.png` (AUC distributions + 2020 vs 2021 scatter), `grid_cell_performance.csv`
+ 
+#### Part 2 — Classification threshold optimisation for cell 6_23
+ 
+Converts the model's continuous probability outputs into binary HIGH / LOW flags by scanning 100 candidate thresholds from 0.25 to 0.74 and selecting the F1-optimal threshold subject to a minimum recall constraint.  MCC is computed but not used as the primary optimisation criterion — it consistently selected thresholds above 0.70 that achieved only 7% recall, providing negligible practical coverage.
+ 
+Two thresholds are derived and compared:
+ 
+| Threshold | Recall floor | Threshold value | F1 | Hours flagged |
+|-----------|-------------|-----------------|-----|---------------|
+| Conservative | ≥ 55% | 0.3539 | — | 7,215 (41.1%) |
+| Aggressive | ≥ 75% | lower | — | 11,212 (63.9%) |
+ 
+The conservative threshold is selected as the primary operating threshold.  The aggressive threshold is economically justified by an economic recall scan (see below) but is operationally impractical: holding active gas futures positions for nearly two-thirds of all operating hours generates substantial hedge premiums even in months with no meaningful price exposure.
+ 
+**Economic recall scan.** For each recall level from 10%–80%, the script finds the F1-optimal threshold satisfying that recall floor and computes net hedge benefit (total actual replacement costs − net costs after hedge) across all four NYMEX Henry Hub futures contracts (C1–C4).  Net benefit rises monotonically to 75% recall, driven primarily by Winter Storm Uri (88% of total replacement costs in February 2021).  This motivates the aggressive threshold as a tail-risk scenario while the conservative threshold remains the default.
+ 
+**Per-year threshold calibration.** An overall threshold (0.3539) is retained rather than recalibrating year-by-year: the year-specific approach improves 2020 performance (lower optimal threshold reflecting the suppressed gas price environment) but uses a more conservative 2021 threshold (0.4084), reducing recall during the Uri period and leaving more extreme loss hours unhedged.
+ 
+**Outputs:** `results/grid_cell/cell_6_23_threshold_scan.png` (Figure 15 from paper), `cell_6_23_recall_scan.png`, `cell_6_23_threshold_summary.csv`, `cell_6_23_recall_scan.csv`
+
 ## Citation
 
 Hersbach, H. et al. (2023). ERA5 hourly data on single levels from 1940 to present. Copernicus Climate Change Service (C3S) Climate Data Store. <https://doi.org/10.24381/cds.adbb2d47>
