@@ -14,6 +14,8 @@ files/
 ├── 05_logistic_regression_models.py
 ├── 06_xgboost_models.py
 └── 07_xgboost_zone_models.py
+├── 08_grid_cell_performance_and_threshold.py
+└── 09_natural_gas_futures.py
 ```
 
 ---
@@ -364,6 +366,60 @@ The conservative threshold is selected as the primary operating threshold.  The 
 **Per-year threshold calibration.** An overall threshold (0.3539) is retained rather than recalibrating year-by-year: the year-specific approach improves 2020 performance (lower optimal threshold reflecting the suppressed gas price environment) but uses a more conservative 2021 threshold (0.4084), reducing recall during the Uri period and leaving more extreme loss hours unhedged.
  
 **Outputs:** `results/grid_cell/cell_6_23_threshold_scan.png` (Figure 15 from paper), `cell_6_23_recall_scan.png`, `cell_6_23_threshold_summary.csv`, `cell_6_23_recall_scan.csv`
+
+### 9 — Natural Gas Futures Data
+ 
+**Script:** `files/09_natural_gas_futures.py`
+ 
+Downloads NYMEX Henry Hub natural gas futures prices from the EIA API and prepares the hedging instrument data used in the financial simulation.  This step feeds directly into the financial simulation script.
+ 
+```bash
+# Set your EIA API key as an environment variable (recommended)
+export EIA_API_KEY=your_key_here
+python files/09_natural_gas_futures.py
+ 
+# Or pass the key directly
+python files/09_natural_gas_futures.py --api-key your_key_here
+ 
+# Re-process an existing download without hitting the API again
+python files/09_natural_gas_futures.py --no-download
+```
+ 
+A free EIA API key is required. Register at <https://www.eia.gov/opendata/register.php>. Never hard-code credentials in the script.
+ 
+#### What is downloaded
+ 
+Four nearby NYMEX Henry Hub delivery contracts (daily closing prices, October 2019–December 2024):
+ 
+| Series ID | Column | Description |
+|-----------|--------|-------------|
+| RNGC1 | `NG_C1` | Prompt month |
+| RNGC2 | `NG_C2` | One-to-two months ahead |
+| RNGC3 | `NG_C3` | Two-to-three months ahead |
+| RNGC4 | `NG_C4` | Three-to-four months ahead |
+ 
+Two spread variables are derived: `spread_C2_C1` = C2 − C1 and `spread_C3_C1` = C3 − C1. These represent the shape of the near-term futures curve — positive values indicate contango (market expects higher future prices), negative values indicate backwardation — and were included as XGBoost model features.
+ 
+The start date of October 2019 ensures C1 covers the January 2020 test period start with no gaps.
+ 
+#### Forward-filling
+ 
+Futures markets do not trade on weekends or holidays, leaving gaps in the daily calendar. The script builds a continuous daily calendar and forward-fills across up to five consecutive non-trading days (sufficient to cover Christmas/New Year stretches). A single back-fill step handles any gap at the very start of the calendar.
+ 
+#### Heat rate conversion
+ 
+Futures prices in $/MMBtu are converted to electricity-equivalent $/MWh for direct comparison with electricity prices using the heat rate derived from a 38% CCGT efficiency assumption — the marginal generation technology most likely to set real-time prices during high-demand or low-wind periods in ERCOT:
+ 
+```
+Heat rate = 1 / (0.293071 MWh/MMBtu × 0.381) = 8.978 MMBtu/MWh
+ 
+Hedge quantity per flagged hour = 30 MWh × 8.978 = 269.34 MMBtu
+Hedge P&L = (NG spot − NG futures) × 269.34 MMBtu
+```
+ 
+Source: [Woodway Energy — Natural Gas Efficiency in Power Generation](https://www.woodwayenergy.com/natural-gas-efficiency-in-power-generation/)
+ 
+**Outputs:** `data/ng_futures/henry_hub_futures_C1_C4_2019_2024.csv` (raw), `data/ng_futures/henry_hub_futures_filled.csv` (forward-filled, simulation-ready)
 
 ## Citation
 
