@@ -184,6 +184,41 @@ Each calendar day is assigned the drought category that best represents the majo
 **Daily output columns:** `date, Load_Zone, grid_latitude, grid_longitude, daily_drought_category, daily_drought_hours, daily_non_drought_hours, daily_mild_hours, daily_moderate_hours, daily_severe_hours, daily_mean_wind_cf, daily_min_wind_cf`
 
 ---
+### 5 — Logistic Regression Baseline Models
+ 
+**Script:** `files/05_logistic_regression_models.py`
+ 
+Three successive logistic regression specifications are evaluated as a baseline before moving to XGBoost. All three use 5-fold stratified cross-validation on the training data and share the same class-balanced setup to handle the ~10:1 LOW:HIGH imbalance.
+ 
+```bash
+# Run all three models
+python files/05_logistic_regression_models.py
+ 
+# Run a single specification
+python files/05_logistic_regression_models.py --model LR-1
+python files/05_logistic_regression_models.py --model LR-2
+python files/05_logistic_regression_models.py --model LR-3
+```
+ 
+#### Model Specifications
+ 
+**LR-1** uses a calendar-day drought category (ordinal 0–3) and a binary extreme-temperature demand flag with one interaction term. The calendar-day label averages over intraday variation in wind output, losing the timing information most relevant to hourly price formation.
+ 
+**LR-2** replaces the calendar-day label with an hourly drought category and adds consecutive drought run hours as a separate feature, along with two interaction terms. Moving to hourly labels improves AUC but the ordinal encoding still discards information at category boundaries — an hour at CF = 0.149 and an hour at CF = 0.051 receive the same label despite representing materially different levels of grid stress.
+ 
+**LR-3** replaces the categorical drought signal entirely with raw `wind_cf` and `drought_run_hours` as continuous inputs, alongside the binary demand flag and two interaction terms. This is the final logistic regression specification. Further search revealed no path to meaningful improvement: AUC had effectively plateaued and precision remained near 0.14–0.15 across all variants.
+ 
+The core limitation of all three models is architectural. Logistic regression learns a single linear decision boundary and can only express the relationship between wind output, temperature stress, and price exposure as a weighted additive combination of inputs. ERCOT price formation is not linear: the marginal impact of a wind shortfall on price depends sharply on what gas costs, how long the drought has persisted, and how much temperature-driven demand is on the system — conditions that compound together in ways no linear model can capture regardless of feature engineering. This motivates the shift to XGBoost.
+ 
+#### Results (Table 3 from paper)
+ 
+| Model | Key Change | CV AUC | CV Recall | CV Precision |
+|-------|-----------|--------|-----------|--------------|
+| LR-1 | Calendar-day drought category + binary demand flag | 0.583 | 0.536 | 0.134 |
+| LR-2 | Hourly drought category + run hours | 0.640 | 0.713 | 0.145 |
+| LR-3 | Raw CF + run hours (continuous) | 0.636 | 0.697 | 0.145 |
+ 
+**Outputs:** `results/logistic_regression/{lr_1,lr_2,lr_3}/test_evaluation.png` and `results/logistic_regression/lr_comparison.csv`
 
 ## Natural Gas Prices
 
