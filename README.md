@@ -64,7 +64,7 @@ python files/01_download_era5_wind.py
 
 **Output:** `era5_wind_data/era5_wind_{year}.grib`
 
-Wind variables are subsequently converted to capacity factors using the Vestas V90-2.0 MW power curve. A drought event is identified when the zone-level capacity factor falls below 0.30, consistent with typical mid-30% capacity factors observed at Texas utility-scale wind farms.
+Wind variables are subsequently converted to wind speeds using the formula $\sqrt{u^2 + v^2}$ and then converting to capacity factors $(0 - 1)$ using the Vestas V90-2.0 MW power curve. A drought event is identified when the zone-level capacity factor falls below 0.30, consistent with typical mid-30% capacity factors observed at Texas utility-scale wind farms.
 
 ---
 
