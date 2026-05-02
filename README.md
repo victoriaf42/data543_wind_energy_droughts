@@ -18,7 +18,8 @@ files/
 ├── 09_natural_gas_futures.py
 ├── 10_hazard_analysis.py
 ├── 11_vulnerability_analysis.py
-└── 12_financial_simulation.py
+├── 12_financial_simulation.py
+└── 13_natural_gas_hedge_simulation.py
 ```
 
 ---
@@ -573,6 +574,40 @@ Loss concentration is extreme: a single 10-day event accounts for 88% of total r
 **Figure 14** — non-Uri period only: the same panels excluding February 2021, allowing the structure of non-extreme months to be visible without Uri's scale distortion.
  
 **Outputs:** `results/financial/figure13_financial_risk_full_period.png`, `figure14_financial_risk_non_uri.png`, `cell_6_23_financial_sim_overall_hourly.csv`, `cell_6_23_financial_sim_overall_monthly.csv`, `cell_6_23_financial_sim_yearspec_hourly.csv`, `cell_6_23_financial_sim_yearspec_monthly.csv`
+
+### 13 — Natural Gas Futures Hedge Simulation
+ 
+**Script:** `files/13_natural_gas_hedge_simulation.py`
+ 
+Evaluates whether buying NYMEX Henry Hub natural gas futures contracts on model-flagged hours can partially offset the electricity price replacement costs incurred under the fixed-volume PPA. Runs after both `09_natural_gas_futures.py` and `12_financial_simulation.py`.
+ 
+```bash
+python files/13_natural_gas_hedge_simulation.py
+```
+ 
+#### How the hedge works
+ 
+For each hour flagged by XGB-2 as HIGH price exposure, the producer buys NG futures at the prevailing contract price. At settlement, `Hedge P&L = (NG spot − NG futures) × 269.34 MMBtu`. The hedge generates a gain when gas spot prices spike above the locked-in futures price, partially offsetting electricity replacement costs. The hedge quantity of 269.34 MMBtu is fixed per flagged hour, derived from the full PPA obligation (30 MWh × 8.978 MMBtu/MWh heat rate).
+ 
+#### Stress test: C1 through C4
+ 
+All four nearby NYMEX contracts are evaluated simultaneously. C1 (prompt month) produces the strongest overall hedge benefit across the simulation period as its settlement price tracks realised spot most closely. C3 and C4 produce net losses on false-positive flagged hours in months where the further-out futures price exceeded realised spot — particularly September–October 2020 under COVID-era demand suppression.
+ 
+#### Three-strategy comparison
+ 
+| Strategy | Hours hedged | Hedge P&L | vs Unhedged |
+|----------|-------------|-----------|-------------|
+| Unhedged | 0 | $0 | — |
+| Model (C1) | 7,215 (41.1%) | $268,320 | +$268,320 |
+| Oracle (C1) | 1,573 (9.0%) | $288,193 | +$288,193 |
+ 
+The model captures 93.1% of the available oracle hedge benefit while committing 4.6× as many hedged hours — a direct consequence of the conservative threshold design that accepts false positives to avoid missing high-severity loss hours. Model efficiency is $37/hr hedged versus $183/hr under the oracle.
+ 
+#### Basis risk and instrument limitations
+ 
+The gas-electricity basis risk is fundamental to this hedge. Henry Hub spot prices explain approximately 25% of ERCOT electricity price variance (R² = 0.257 over 2020–2024, prices clipped at $15/MMBtu). Across the 1,136 true positive hours, the C1 strategy recovered only $301,000 of the $19.19M in actual replacement costs — a recovery rate of 1.57%. This reflects the incomplete correlation between gas and electricity prices rather than a model failure. Meaningful risk reduction would require coupling instruments such as parametric insurance, geographic diversification of wind assets, or a combination targeting different dimensions of the exposure distribution.
+ 
+**Outputs:** `results/hedge/figure16_futures_vs_spot.png`, `figure17_monthly_hedge_pnl.png`, `figure18_strategy_net_position.png`, `figure19_monthly_strategy.png`, `hedge_summary.csv`
 
 ## Citation
 
