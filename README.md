@@ -463,6 +463,64 @@ At lenient thresholds all four seasons show near-certain exceedance, confirming 
  
 **Outputs:** `results/hazard/figure4_seasonality_lz_west.png`, `results/hazard/figure5_exceedance_probabilities_lz_west.png`
 
+### 11 — Vulnerability Analysis
+ 
+**Script:** `files/11_vulnerability_analysis.py`
+ 
+Assesses the financial sensitivity of exposed wind generation assets to real-time electricity price fluctuations during wind drought periods, decomposing vulnerability across three compounding dimensions: wind drought severity, natural gas price, and temperature-driven demand.
+ 
+```bash
+python files/11_vulnerability_analysis.py
+```
+ 
+#### Stress threshold methodology
+ 
+Three physical stress thresholds are derived via a two-step process consistent with the paper's methodology section.
+ 
+**Step 1 — Marginal thresholds.** Each variable is binned into ten equal-width intervals. The first bin where the HIGH-exposure rate exceeds 1.25× the 10% baseline is identified as the marginal stress threshold for that variable.
+ 
+**Step 2 — Weighted-average thresholds (primary approach).** All combinations of the three variables binned into five intervals each are evaluated jointly. The 83 of 125 combinations (81%) that exceed 1.25× baseline are retained, and hour-weighted averages across these joint stress combinations produce the final thresholds:
+ 
+| Variable | Threshold | Role |
+|----------|-----------|------|
+| `wind_cf` | < 0.13 | Contractual shortfall zone — producer must purchase replacement power |
+| `gas_price_mmbtu` | ≥ $4.15/MMBtu | Primary price amplifier — sets cost floor for backup dispatch |
+| `temp_stress` (= `|tmm_F − 65|`) | ≥ 25.8°F | Demand amplifier — tightens gas supply and reinforces price pressure |
+ 
+All three values fall below their respective marginal thresholds, confirming that compounding amplifies price exposure even when no single variable reaches its standalone extreme.
+ 
+#### Figure 9 — Marginal stress threshold discovery
+ 
+Three-panel bar chart showing the HIGH-exposure rate per decile bin for each variable. Red bars exceed the 1.25× lift cutoff. Dashed lines mark the weighted-average thresholds applied throughout the analysis.
+ 
+The marginal wind CF threshold below 0.10 corresponds to a HIGH-exposure rate of 14.1% (1.41× baseline). The gas price threshold captures only 1.8% of test hours and is almost entirely concentrated in the February 2021 Winter Storm Uri event, making it unsuitable as a general structural vulnerability indicator on its own.
+ 
+#### Figure 10 — Conditional HIGH-exposure rates
+ 
+Horizontal bar chart of the conditional HIGH-exposure rate for each combination of the three stress flags. Key finding: when all three conditions coincide, the HIGH-exposure rate reaches **45.7% (4.57× baseline)** — meaning 8,573 of the 18,750 compound stress cell-hours in the test period were actual HIGH-exposure hours. Gas price and temperature stress together (even without wind drought) produce a HIGH rate of 56.1%, the strongest two-variable combination.
+ 
+#### Figure 11 — Model recall by stress condition
+ 
+Demonstrates that the model achieves near-complete recall precisely during compound stress events — the conditions of greatest financial risk. Wind drought alone carries a HIGH-exposure rate of only 14.1%, reinforcing that contractual shortfall is primarily a delivery risk rather than a price risk unless compounded by gas and temperature stress.
+ 
+#### Figure 12 — Seasonal vulnerability profile
+ 
+Four-metric grouped bar chart by season. **Fall emerges as the most financially dangerous period**, with a HIGH-exposure rate of 20.3% during drought hours — nearly double Summer's 10.5%. Despite Summer recording the highest raw drought rate (34.4% of hours), the combination of post-summer gas prices and lingering temperature stress into the cooling season makes Fall the period during which contractual shortfall and price risk most frequently coincide.
+ 
+#### Three-approach comparison
+ 
+| Metric | Percentile (P75) | Weighted Avg | Marginal Lift |
+|--------|-----------------|--------------|---------------|
+| Gas threshold | yr-specific | ≥ $4.15/MMBtu | ≥ $5.84/MMBtu |
+| Triple-stress hours | 54,122 | **18,750** | 5,364 |
+| Triple HIGH rate | 27.5% | **45.7%** | ~99% |
+| Triple lift vs baseline | 2.75× | **4.57×** | ~10× |
+| Model recall on triple | 96.5% | **100%** | 100% |
+| Recurring structural signal | Yes | **Yes** | No |
+| Recommended use | Robustness | **Primary** | Tail-risk only |
+ 
+**Outputs:** `results/vulnerability/figure9_marginal_stress_thresholds.png`, `figure10_conditional_high_exposure.png`, `figure11_model_recall_by_condition.png`, `figure12_seasonal_vulnerability.png`, `three_approach_comparison.csv`
+
 ## Citation
 
 Hersbach, H. et al. (2023). ERA5 hourly data on single levels from 1940 to present. Copernicus Climate Change Service (C3S) Climate Data Store. <https://doi.org/10.24381/cds.adbb2d47>
