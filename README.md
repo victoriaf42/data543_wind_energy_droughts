@@ -17,7 +17,8 @@ files/
 ├── 08_grid_cell_performance_and_threshold.py
 ├── 09_natural_gas_futures.py
 ├── 10_hazard_analysis.py
-└── 11_vulnerability_analysis.py
+├── 11_vulnerability_analysis.py
+└── 12_financial_simulation.py
 ```
 
 ---
@@ -521,6 +522,57 @@ Four-metric grouped bar chart by season. **Fall emerges as the most financially 
 | Recommended use | Robustness | **Primary** | Tail-risk only |
  
 **Outputs:** `results/vulnerability/figure9_marginal_stress_thresholds.png`, `figure10_conditional_high_exposure.png`, `figure11_model_recall_by_condition.png`, `figure12_seasonal_vulnerability.png`, `three_approach_comparison.csv`
+
+### 12 — Financial Risk Simulation
+ 
+**Script:** `files/12_financial_simulation.py`
+ 
+Simulates the hourly financial position of a wind energy producer at grid cell 6_23 (LZ_WEST, 100 MW) operating under a fixed-volume physical PPA, and evaluates how well the XGB-2 model's HIGH-exposure flags align with actual financial loss events across the 2020–2021 test period.
+ 
+```bash
+python files/12_financial_simulation.py
+```
+ 
+#### PPA structure and financial logic
+ 
+| Parameter | Value |
+|-----------|-------|
+| Nameplate capacity | 100 MW |
+| Fixed PPA price | $50 / MWh |
+| Delivery obligation | 30 MWh / hr (30% CF floor) |
+| Baseline position | $1,500 / hr (no wind variability) |
+ 
+Every hour the simulation computes:
+ 
+- **Shortfall hours** (wind_mwh < 30): producer must buy replacement energy on the spot market. Loss = `max(0, spot − $50) × shortfall_mwh`. No gain if spot < $50 (no-arbitrage constraint).
+- **Surplus hours** (wind_mwh > 30): producer sells excess generation at spot. Revenue = `max(0, spot − $50) × excess_mwh`.
+- **Net position** = PPA revenue − replacement cost + surplus revenue.
+#### Model flagging and loss capture
+ 
+The simulation evaluates the conservative (overall) threshold (0.3539) against the year-specific alternative. The primary metric is the **loss capture rate** — the share of total replacement costs that occurred in model-flagged hours.
+ 
+| Outcome | Definition | Financial interpretation |
+|---------|-----------|--------------------------|
+| True positive | Flagged AND spot > $50 | Loss correctly anticipated — hedgeable |
+| False positive | Flagged AND spot ≤ $50 | Unnecessary flag — small hedge cost |
+| False negative | Not flagged AND spot > $50 | Loss missed — unhedged exposure |
+| True negative | Not flagged AND spot ≤ $50 | Correctly ignored |
+ 
+#### Results (Table 9 from paper)
+ 
+Over the 2020–2021 test period the model flags 7,215 hours (41.1%), capturing **97% of total replacement costs** ($19.2M of $19.7M) at the conservative threshold. The loss capture rate is dominated by Winter Storm Uri (February 10–20, 2021), which alone accounts for 88.1% of total replacement costs ($17.4M). Uri loss hours are physically distinctive — mean wind CF of 0.093, gas prices at 2.54× normal levels, temperature stress at 3.4× average — producing precisely the compound stress signal the model detects most reliably (Uri AUC = 0.809 vs non-Uri AUC = 0.576). Outside of Uri, the model captures 77.8% of the remaining $2.3M in non-Uri losses.
+ 
+#### Why 97% loss capture despite AUC = 0.616
+ 
+Loss concentration is extreme: a single 10-day event accounts for 88% of total replacement costs. AUC measures the model's ability to rank all hours by risk correctly — including the many moderate-exposure hours in the suppressed 2020 environment where the gas-electricity relationship was disrupted. These hours contribute little to financial losses but substantially depress overall AUC. The contrast between Uri AUC (0.809) and non-Uri AUC (0.576) confirms the model operates in two distinct regimes.
+ 
+#### Figures
+ 
+**Figure 13** — full 2020–2021 period: monthly replacement costs split by model outcome (blue = loss in flagged hours, red = loss in non-flagged hours), surplus revenue, and monthly loss capture rate.
+ 
+**Figure 14** — non-Uri period only: the same panels excluding February 2021, allowing the structure of non-extreme months to be visible without Uri's scale distortion.
+ 
+**Outputs:** `results/financial/figure13_financial_risk_full_period.png`, `figure14_financial_risk_non_uri.png`, `cell_6_23_financial_sim_overall_hourly.csv`, `cell_6_23_financial_sim_overall_monthly.csv`, `cell_6_23_financial_sim_yearspec_hourly.csv`, `cell_6_23_financial_sim_yearspec_monthly.csv`
 
 ## Citation
 
